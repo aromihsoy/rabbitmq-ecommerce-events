@@ -1,9 +1,13 @@
 import asyncio
 import logging
 
+from sqlalchemy.dialects.postgresql import insert
+
 import aio_pika
 
 from app.config import settings
+from app.models import ProcessedMessage
+from app.db import session_maker
 
 
 
@@ -23,7 +27,23 @@ async def main() -> None:
         async with queue.iterator() as queue_iter:
             async for message in queue_iter:
                 async with message.process():
-                    print(message.body)
+                    mid = message.message_id
+
+                    async with session_maker() as session:
+                        async with session.begin():
+                            stmt = (
+                                insert(ProcessedMessage)
+                                .values(consumer="inventory", message_id=mid)
+                                .on_conflict_do_nothing()
+                                .returning(ProcessedMessage.message_id)
+                            )
+                            result = await session.execute(stmt)
+                            is_new = result.scalar_one_or_none() is not None
+
+                            if is_new:
+                                print(f"NEW {mid} - отправляю письмо")
+                            else:
+                                print(f"DUP {mid} - уже было обработано, пропуск")
 
 
 if __name__ == "__main__":

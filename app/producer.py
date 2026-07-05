@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 
 import aio_pika
 
@@ -14,11 +15,10 @@ async def main() -> None:
 
     async with connection:
         channel = await connection.channel()
-
         exchange = await channel.declare_exchange("orders", aio_pika.ExchangeType.TOPIC)
-
+        message_id = str(uuid.uuid4())
         await exchange.publish(
-            aio_pika.Message(body=b"order paid"),
+            aio_pika.Message(body=b"order paid", message_id=message_id),
             routing_key="order.paid",
         )
 
