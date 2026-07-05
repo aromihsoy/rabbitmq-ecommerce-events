@@ -1,4 +1,17 @@
 services:
+
+  postgres:
+    image: postgres:16
+    container_name: ecommerce_postgres
+    environment:
+      POSTGRES_USER: ecommerce
+      POSTGRES_PASSWORD: ecommerce
+      POSTGRES_DB: ecommerce
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+  
   rabbitmq:
     image: rabbitmq:3-management
     container_name: ecommerce_rabbit
@@ -6,3 +19,6 @@ services:
       - "5672:5672"
       - "15672:15672"
     restart: always
+
+volumes:
+  pgdata:
