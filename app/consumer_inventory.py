@@ -3,20 +3,21 @@ import logging
 
 import aio_pika
 
+from app.config import settings
+
 
 
 
 async def main() -> None:
     logging.basicConfig(level=logging.INFO)
     connection = await aio_pika.connect_robust(
-        "amqp://guest:guest@127.0.0.1/"
+        settings.rabbitmq_url
     )
-
-
+        
     async with connection:
         channel = await connection.channel()
         exchange = await channel.declare_exchange("orders", aio_pika.ExchangeType.TOPIC)
-        queue = await channel.declare_queue("email")
+        queue = await channel.declare_queue("inventory")
         await queue.bind(exchange, routing_key="order.paid")
 
         async with queue.iterator() as queue_iter:

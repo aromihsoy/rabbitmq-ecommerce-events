@@ -2,12 +2,14 @@ import asyncio
 
 import aio_pika
 
+from app.config import settings
+
 
 
 
 async def main() -> None:
     connection = await aio_pika.connect_robust(
-        "amqp://guest:guest@127.0.0.1/"
+        settings.rabbitmq_url
     )
 
     async with connection:
