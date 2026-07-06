@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request, HTTPException
 from contextlib import asynccontextmanager
+from pydantic import BaseModel
 import aio_pika, uuid
 
 from app.config import settings
@@ -27,8 +28,23 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="E-commerce event", lifespan=lifespan)
 
 
+class OrderCreate(BaseModel):
+    amount: int
 
-@app.post("/orders/{order_id}/pay")
+class OrderRead(BaseModel):
+    id: int
+    status: str
+    amount: int
+
+    model_config = {"from_attributes": True}
+
+class PaymentResult(BaseModel):
+    order_id: int
+    status: str
+    message_id: str
+
+
+@app.post("/orders/{order_id}/pay", response_model=PaymentResult)
 async def pay_order(order_id: int, request: Request):
     async with session_maker() as session:
         async with session.begin():
@@ -46,3 +62,14 @@ async def pay_order(order_id: int, request: Request):
         aio_pika.Message(body=f"order {order_id} paid".encode(), message_id=message_id),
         routing_key="order.paid",
     )
+    return PaymentResult(order_id=order_id, status="paid", message_id=message_id)
+
+
+
+@app.post("/orders", status_code=201, response_model=OrderRead)
+async def create_order(data: OrderCreate):
+    async with session_maker() as session:
+        async with session.begin():
+            order = Order(status="pending", amount=data.amount)
+            session.add(order)
+        return order
