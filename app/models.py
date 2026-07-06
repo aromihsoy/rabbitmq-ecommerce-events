@@ -16,3 +16,11 @@ class ProcessedMessage(Base):
     consumer: Mapped[str] = mapped_column(String, primary_key=True)
     message_id: Mapped[str] = mapped_column(String, primary_key=True)
     processed_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now())
+
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    status: Mapped[str] = mapped_column(default="pending")
+    amount: Mapped[int]
