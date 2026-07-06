@@ -41,7 +41,7 @@ async def main() -> None:
                             is_new = result.scalar_one_or_none() is not None
 
                             if is_new:
-                                print(f"NEW {mid} - отправляю письмо")
+                                print(f"NEW {mid} - списываю товар")
                             else:
                                 print(f"DUP {mid} - уже было обработано, пропуск")
 
