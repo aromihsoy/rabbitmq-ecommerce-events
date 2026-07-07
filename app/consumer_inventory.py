@@ -1,13 +1,12 @@
 import asyncio
 import logging
 
-from sqlalchemy.dialects.postgresql import insert
 
 import aio_pika
 
 from app.config import settings
-from app.models import ProcessedMessage
 from app.db import session_maker
+from app.dedup import mark_processed
 
 
 
@@ -41,17 +40,12 @@ async def main() -> None:
                 try:
                     async with message.process(requeue=False):
                         mid = message.message_id
+                        if mid is None:
+                            raise ValueError("message without message_id")
 
                         async with session_maker() as session:
                             async with session.begin():
-                                stmt = (
-                                    insert(ProcessedMessage)
-                                    .values(consumer="inventory", message_id=mid)
-                                    .on_conflict_do_nothing()
-                                    .returning(ProcessedMessage.message_id)
-                                )
-                                result = await session.execute(stmt)
-                                is_new = result.scalar_one_or_none() is not None
+                                is_new = await mark_processed(session, "inventory", mid)
 
                                 if is_new:
                                     if "poison" in message.body.decode():
