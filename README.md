@@ -49,9 +49,8 @@ Alembic, Docker Compose
 5. консьюмеры: python -m app.consumer_email / consumer_inventory
 
 ## Пример
-POST /orders {"amount": 500} → создать заказ
-
-POST /orders/{id}/pay → оплатить, событие уходит в fan-out
+- POST /orders {"amount": 500} → создать заказ
+- POST /orders/{id}/pay → оплатить, событие уходит в fan-out
 
 ## Не реализовано / планы
 retry с backoff, transactional outbox, распад на сервисы
