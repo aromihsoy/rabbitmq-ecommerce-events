@@ -4,7 +4,7 @@ from pydantic import BaseModel
 import aio_pika, uuid
 
 from app.config import settings
-from app.db import engine, session_maker
+from app.db import engine, session_maker, SessionDep
 from app.models import Order
 
 
@@ -45,17 +45,16 @@ class PaymentResult(BaseModel):
 
 
 @app.post("/orders/{order_id}/pay", response_model=PaymentResult)
-async def pay_order(order_id: int, request: Request):
-    async with session_maker() as session:
-        async with session.begin():
-            order = await session.get(Order, order_id)
+async def pay_order(order_id: int, request: Request, session: SessionDep):
+    async with session.begin():
+        order = await session.get(Order, order_id)
 
-            if order is None:
-                raise HTTPException(404, "Order not found")
-            if order.status == "paid":
-                raise HTTPException(409, "Order already paid")
-            
-            order.status = "paid"
+        if order is None:
+            raise HTTPException(404, "Order not found")
+        if order.status == "paid":
+            raise HTTPException(409, "Order already paid")
+        
+        order.status = "paid"
 
     message_id = str(uuid.uuid4())
     await request.app.state.exchange.publish(
@@ -67,9 +66,8 @@ async def pay_order(order_id: int, request: Request):
 
 
 @app.post("/orders", status_code=201, response_model=OrderRead)
-async def create_order(data: OrderCreate):
-    async with session_maker() as session:
-        async with session.begin():
-            order = Order(status="pending", amount=data.amount)
-            session.add(order)
-        return order
+async def create_order(data: OrderCreate, session: SessionDep):
+    async with session.begin():
+        order = Order(status="pending", amount=data.amount)
+        session.add(order)
+    return order
