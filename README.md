@@ -43,7 +43,7 @@ Alembic, Docker Compose
 
 ## Запуск
 1. docker compose up -d
-2. дождаться старта контейнеров. Иначе alembic упадёт на connect.
+2. дождаться старта контейнеров(5-10 сек.). Иначе alembic упадёт на connect.
 3. alembic upgrade head
 4. uvicorn app.main:app --reload
 5. консьюмеры: python -m app.consumer_email / consumer_inventory
