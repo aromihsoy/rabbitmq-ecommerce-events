@@ -50,6 +50,7 @@ Alembic, Docker Compose
 
 ## Пример
 POST /orders {"amount": 500} → создать заказ
+
 POST /orders/{id}/pay → оплатить, событие уходит в fan-out
 
 ## Не реализовано / планы
