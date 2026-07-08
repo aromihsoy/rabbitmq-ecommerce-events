@@ -1,11 +1,11 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
 import aio_pika, uuid
 
 from app.config import settings
 from app.db import engine, session_maker, SessionDep
-from app.models import Order
+from app.models import Order, Outbox
 
 
 
@@ -45,7 +45,7 @@ class PaymentResult(BaseModel):
 
 
 @app.post("/orders/{order_id}/pay", response_model=PaymentResult)
-async def pay_order(order_id: int, request: Request, session: SessionDep):
+async def pay_order(order_id: int, session: SessionDep):
     async with session.begin():
         order = await session.get(Order, order_id)
 
@@ -56,11 +56,14 @@ async def pay_order(order_id: int, request: Request, session: SessionDep):
         
         order.status = "paid"
 
-    message_id = str(uuid.uuid4())
-    await request.app.state.exchange.publish(
-        aio_pika.Message(body=f"order {order_id} paid".encode(), message_id=message_id),
-        routing_key="order.paid",
-    )
+        message_id = str(uuid.uuid4())
+        outbox = Outbox(
+            message_id=message_id,
+            routing_key="order.paid",
+            payload=f"order {order_id} paid",
+        )
+        session.add(outbox)
+
     return PaymentResult(order_id=order_id, status="paid", message_id=message_id)
 
 
