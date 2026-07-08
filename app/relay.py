@@ -10,6 +10,26 @@ from app.db import session_maker
 from app.models import Outbox
 
 
+async def publish_pending(session, exchange) -> int:
+    result = await session.execute(
+        select(Outbox)
+        .where(Outbox.published_at.is_(None))
+        .order_by(Outbox.created_at)
+    )
+
+    rows = result.scalars().all()
+
+    for row in rows:
+        await exchange.publish(
+            aio_pika.Message(
+                body=row.payload.encode(),
+                message_id=row.message_id,
+            ),
+            routing_key=row.routing_key,
+        )
+        row.published_at = datetime.now(timezone.utc)
+    
+    return len(rows)
 
 
 async def main() -> None:
@@ -22,23 +42,7 @@ async def main() -> None:
         while True:
             async with session_maker() as session:
                 async with session.begin():
-                    result = await session.execute(
-                        select(Outbox)
-                        .where(Outbox.published_at.is_(None))
-                        .order_by(Outbox.created_at)
-                    )
-
-                    rows = result.scalars().all()
-
-                    for row in rows:
-                        await exchange.publish(
-                            aio_pika.Message(
-                                body=row.payload.encode(),
-                                message_id=row.message_id,
-                            ),
-                            routing_key=row.routing_key,
-                        )
-                        row.published_at = datetime.now(timezone.utc)
+                    await publish_pending(session, exchange)
             await asyncio.sleep(2)
 
 if __name__ == "__main__":
