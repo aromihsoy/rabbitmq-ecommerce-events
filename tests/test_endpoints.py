@@ -1,9 +1,11 @@
 import pytest_asyncio
 from unittest.mock import AsyncMock
 from httpx import AsyncClient, ASGITransport
+from sqlalchemy import select
 
 from app.main import app
 from app.db import get_session
+from app.models import Outbox
 
 
 
@@ -29,14 +31,18 @@ async def test_create_order(client):
     assert resp.json()["status"] == "pending"
 
 
-async def test_pay_order(client):
+async def test_pay_order_writes_to_outbox(client, session):
     created = await client.post("/orders", json={"amount": 500})
     order_id = created.json()["id"]
 
     resp = await client.post(f"/orders/{order_id}/pay")
     assert resp.status_code == 200
-    assert resp.json()["status"] == "paid"
-    app.state.exchange.publish.assert_awaited_once()
+    
+    result = await session.execute(select(Outbox))
+    rows = result.scalars().all()
+    assert len(rows) == 1
+    assert rows[0].routing_key == "order.paid"
+    assert rows[0].published_at is None
 
 
 async def test_pay_already_paid(client):
