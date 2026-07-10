@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy import select
 
-from app.main import app
+from order_service.main import app
 from shared.db import get_session
 from shared.models import Outbox
 
