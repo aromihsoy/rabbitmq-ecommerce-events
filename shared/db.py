@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from fastapi import Depends
 from typing import Annotated
 
-from app.config import settings
+from shared.config import settings
 
 
 

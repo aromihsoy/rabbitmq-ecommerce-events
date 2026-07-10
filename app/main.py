@@ -3,9 +3,9 @@ from contextlib import asynccontextmanager
 from pydantic import BaseModel
 import aio_pika, uuid
 
-from app.config import settings
-from app.db import engine, session_maker, SessionDep
-from app.models import Order, Outbox
+from shared.config import settings
+from shared.db import engine, session_maker, SessionDep
+from shared.models import Order, Outbox
 
 
 

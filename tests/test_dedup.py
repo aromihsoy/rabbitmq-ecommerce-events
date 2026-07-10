@@ -1,6 +1,6 @@
-from app.dedup import mark_processed
+from shared.dedup import mark_processed
 from sqlalchemy import select, func
-from app.models import ProcessedMessage
+from shared.models import ProcessedMessage
 
 
 

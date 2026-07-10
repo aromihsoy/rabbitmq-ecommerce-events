@@ -4,10 +4,10 @@ import logging
 
 import aio_pika
 
-from app.config import settings
-from app.db import session_maker
-from app.dedup import mark_processed
-from app.retry import get_death_count, MAX_RETRIES
+from shared.config import settings
+from shared.db import session_maker
+from shared.dedup import mark_processed
+from shared.retry import get_death_count, MAX_RETRIES
 
 
 

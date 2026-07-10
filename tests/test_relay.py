@@ -1,7 +1,7 @@
 from unittest.mock import AsyncMock
 from sqlalchemy import select
 from app.relay import publish_pending
-from app.models import Outbox
+from shared.models import Outbox
 
 
 

@@ -4,8 +4,8 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy import select
 
 from app.main import app
-from app.db import get_session
-from app.models import Outbox
+from shared.db import get_session
+from shared.models import Outbox
 
 
 

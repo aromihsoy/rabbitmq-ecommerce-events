@@ -1,6 +1,6 @@
 from sqlalchemy.dialects.postgresql import insert
 
-from app.models import ProcessedMessage
+from shared.models import ProcessedMessage
 
 
 
