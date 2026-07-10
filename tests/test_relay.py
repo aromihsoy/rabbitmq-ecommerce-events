@@ -6,7 +6,7 @@ from shared.models import Outbox
 
 
 
-async def test_publish_penging_publishes_and_marks(session):
+async def test_publish_pending_publishes_and_marks(session):
     session.add(Outbox(
         message_id="msg-1",
         routing_key="order.paid",

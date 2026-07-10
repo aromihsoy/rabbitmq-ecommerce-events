@@ -1,4 +1,15 @@
 services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: ecommerce_rabbit
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   postgres:
     image: postgres:16
@@ -11,14 +22,86 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecommerce"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
   
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: ecommerce_rabbit
+  migrate:
+    build:
+      context: .
+      dockerfile: order_service/Dockerfile
+    command: alembic upgrade head
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq/
+      DATABASE_URL: postgresql+asyncpg://ecommerce:ecommerce@postgres:5432/ecommerce
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  order-web:
+    build:
+      context: .
+      dockerfile: order_service/Dockerfile
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq/
+      DATABASE_URL: postgresql+asyncpg://ecommerce:ecommerce@postgres:5432/ecommerce
     ports:
-      - "5672:5672"
-      - "15672:15672"
-    restart: always
+      - "8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  order-relay:
+    build:
+      context: .
+      dockerfile: order_service/Dockerfile
+    command: python -m order_service.relay
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq/
+      DATABASE_URL: postgresql+asyncpg://ecommerce:ecommerce@postgres:5432/ecommerce
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+  
+  notification:
+    build:
+      context: .
+      dockerfile: notification_service/Dockerfile
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq/
+      DATABASE_URL: postgresql+asyncpg://ecommerce:ecommerce@postgres:5432/ecommerce
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+  
+  inventory:
+    build:
+      context: .
+      dockerfile: inventory_service/Dockerfile
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq/
+      DATABASE_URL: postgresql+asyncpg://ecommerce:ecommerce@postgres:5432/ecommerce
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
 
 volumes:
   pgdata:
