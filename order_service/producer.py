@@ -3,7 +3,7 @@ import uuid
 
 import aio_pika
 
-from app.config import settings
+from shared.config import settings
 
 
 

@@ -1,12 +1,12 @@
 from unittest.mock import AsyncMock
 from sqlalchemy import select
-from app.relay import publish_pending
-from app.models import Outbox
+from order_service.relay import publish_pending
+from shared.models import Outbox
 
 
 
 
-async def test_publish_penging_publishes_and_marks(session):
+async def test_publish_pending_publishes_and_marks(session):
     session.add(Outbox(
         message_id="msg-1",
         routing_key="order.paid",

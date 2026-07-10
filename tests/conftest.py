@@ -1,7 +1,7 @@
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
-from app.models import Base
+from shared.models import Base
 
 
 

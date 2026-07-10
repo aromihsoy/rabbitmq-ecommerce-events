@@ -5,9 +5,9 @@ import aio_pika
 from sqlalchemy import select
 
 
-from app.config import settings
-from app.db import session_maker
-from app.models import Outbox
+from shared.config import settings
+from shared.db import session_maker
+from shared.models import Outbox
 
 
 async def publish_pending(session, exchange) -> int:
