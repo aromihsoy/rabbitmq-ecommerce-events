@@ -14,15 +14,16 @@ FastAPI, PostgreSQL + async SQLAlchemy, RabbitMQ (aio-pika),
 Alembic, Docker Compose
 
 ## Топология
+```
                     ┌──────────────────────────────────────┐
-                    │   POST /orders/{id}/pay (FastAPI)    │
+                    │   POST /orders/{id}/pay (order-web)   │
                     └─────────┬────────────────────────────┘
                               │ (одна транзакция БД)
                               ├── UPDATE orders SET status=paid
                               └── INSERT INTO outbox
                                       │
                                       ▼
-                              relay (поллит outbox)
+                              order-relay (поллит outbox)
                                        │ publish
                                        ▼
                           topic exchange "orders"
@@ -33,40 +34,62 @@ Alembic, Docker Compose
              queue "email"                        queue "inventory"
                     │                                      │
                     ▼                                      ▼
-          consumer (manual ack,               consumer (manual ack,
-           идемпотентный)                       идемпотентный)
+          notification-service               inventory-service
+          (manual ack, идемпотентный)        (manual ack, идемпотентный)
                     │                                      │
-       (ядовитое сообщение)                   (ядовитое сообщение)
-                    │                                      │
+              при падении                          при падении
                     ▼                                      ▼
-        orders.dlx → email.dlq            orders.dlx → inventory.dlq
+          email.retry (TTL 5с)               inventory.retry (TTL 5с)
+             └─ обратно в очередь               └─ обратно в очередь
+                    │                                      │
+            после 3 попыток                       после 3 попыток
+                    ▼                                      ▼
+             email.dlq                          inventory.dlq
+```
+
+## Структура проекта
+```
+├── shared/               # общий код: config, db, models, dedup, retry
+├── order_service/        # FastAPI producer + relay
+├── notification_service/ # консьюмер email
+├── inventory_service/    # консьюмер inventory
+├── alembic/              # миграции (общая БД)
+└── docker-compose.yml
+```
 
 ## Что реализовано
-- fan-out через topic exchange
+- topic exchange + ручная топология
+- fan-out
 - manual ack, идемпотентность консьюмеров (дедупликация по message_id)
 - DLQ для ядовитых сообщений
 - prefetch_count
 - transactional outbox — событие пишется в БД атомарно со сменой
   статуса заказа, отдельный relay-процесс публикует его в RabbitMQ
   (гарантия, что событие не потеряется, если брокер недоступен)
+- retry с backoff (x-death + TTL retry-очереди, потолок попыток -> DLQ)
+- распад на сервисы (order/notification/inventory + shared)
+- докеризация (Docker compose, healthcheck, миграция отдельным сервисом)
 
 ## Запуск
-1. docker compose up -d
-2. дождаться старта контейнеров(5-10 сек.). Иначе alembic упадёт на connect.
-3. alembic upgrade head
-4. uvicorn app.main:app --reload
-5. консьюмеры: python -m app.consumer_email / consumer_inventory
+1. cp .env.example .env
+2. docker compose up -d
+   (migrate накатит схему автоматом, сервисы ждут healthcheck кролика и БД)
+3. Swagger: http://localhost:8000/docs
+   RabbitMQ management: http://localhost:15672 (guest/guest)
+
+## Тесты
+Тесты прогоняются локально (не в контейнере), поэтому вам нужен установленный pip install -r requirements.txt в venv — иначе клонировавший запустит pytest без зависимостей и упадёт.
+1. docker compose exec postgres psql -U ecommerce -c "CREATE DATABASE ecommerce_test;"
+2. pytest
 
 ## Пример
 - POST /orders {"amount": 500} → создать заказ
 - POST /orders/{id}/pay → оплатить, событие уходит в fan-out
-
-## Не реализовано / планы
-retry с backoff, распад на сервисы
+- Событие после оплаты видно в логах: docker compose logs notification
 
 ## Известные ограничения
 - Один relay-процесс. При запуске нескольких relay одновременно
   возможна повторная публикация события (оба прочитают одни и те же
   неопубликованные строки). Дубли гасятся идемпотентностью консьюмеров.
-  Решается блокировкой строк но я этого не делал:) (SELECT ... FOR UPDATE SKIP LOCKED).
-- Retry с backoff для консьюмеров не реализован (вынесен в планы).
+  Решается блокировкой строк (SELECT ... FOR UPDATE SKIP LOCKED).
+- Сервисы разделены по контейнерам, но используют общую БД — не полная изоляция данных, как в каноничных микросервисах.
